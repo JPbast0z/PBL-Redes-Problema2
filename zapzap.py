@@ -38,6 +38,26 @@ def sincronizar_relogio(clock):
     sinc_mensagem = {'type': 'clockSync', 'clock': clock.value, 'host' : HOST, 'port' : PORT}
     enviar_socket(sinc_mensagem)
 
+def sincronizar_mensagens():
+    sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
+    enviar_socket(sinc_mensagem)
+
+
+def enviar_historico_sinc(mensagem):
+    
+    enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    for i in historico_mensagens:
+        sinc_mensagem = {'type': 'recivMsgSync', 'data' : i}
+        sinc_mensagem = json.dumps(sinc_mensagem)
+        enviar_socket.sendto(sinc_mensagem.encode(), (mensagem['host'], mensagem['port']))
+    enviar_socket.close()
+
+def receber_historico_sinc(data):
+    mensagem =  data['data']
+    if mensagem not in historico_mensagens:
+        historico_mensagens.append(mensagem)
+
 #Função que recebe mens
 def receber_mensagens(clock):
     while True:
@@ -95,7 +115,11 @@ def triagem_mensagens(dados, clock):
     elif mensagem['type'] == 'updateClock':
         clock.update(mensagem['clock'])
         print('02 - ',HOST, ' : ', PORT, ' -> ', clock.value)
-        
+    elif mensagem['type'] == 'sendMsgSync':     
+        enviar_historico_sinc(mensagem)
+
+    elif mensagem['type'] == 'recivMsgSync':
+        receber_historico_sinc(mensagem)   
 
 def exibir_mensagens():
     print('''
@@ -119,6 +143,7 @@ clock = LamportClock()
 thread_receber = threading.Thread(target=receber_mensagens, args=(clock,))
 thread_receber.start()
 sincronizar_relogio(clock)
+sincronizar_mensagens()
 print(HOST, ' : ', PORT, ' -> ', clock.value)
 #Looping principal
 while True:
