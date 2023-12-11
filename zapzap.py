@@ -11,6 +11,24 @@ mensagens_all = []
 #Contatos conhecidos (Dicionario com o endereço dos usuarios conectados) - host:porta
 membros_grupo = {1 : '127.0.0.1:1234', 2 : '127.0.0.1:5678', 3 : '127.0.0.1:9000', 4 : '127.0.0.1:1111'}
 
+# Códigos de escape ANSI para cores de texto
+CORES = [
+    '\033[91m',  # Vermelho
+    '\033[92m',  # Verde
+    '\033[93m',  # Amarelo
+    '\033[94m',  # Azul
+    '\033[95m',  # Magenta
+    '\033[96m',  # Ciano
+    '\033[97m',  # Branco
+    '\033[31m',  # Vermelho claro
+    '\033[32m',  # Verde claro
+    '\033[33m',  # Amarelo claro
+    '\033[34m',  # Azul claro
+    '\033[35m',  # Magenta claro
+    '\033[36m',  # Ciano claro
+    '\033[37m',  # Cinza
+]
+
 #Histórico de mensagens
 historico_mensagens = []
 
@@ -137,18 +155,28 @@ def triagem_mensagens(clock):
             elif mensagem['type'] == 'recivMsgSync':
                 receber_historico_sinc(mensagem)  
 
+def select_cor(var):
+    for i in membros_grupo:
+        if membros_grupo[i] == var:
+            return CORES[i - 1]
+
 def exibir_mensagens():
     os.system('cls') #windowns
     #os.system('clear') #linux
     print('''
     -=-=-=-=-=-=--=--=-=-
-        CHAT
+            ZAPZAP
     -=-=-=-=-=-=--=--=-=-
 ''')
     hisorico_ordenado = sorted(historico_mensagens, key=lambda x: (x['time'], x['id']))
     for i in hisorico_ordenado:
         mensagem = descriptografar(i['conteudo'])
-        print('TIME: ', i['time'], ':', mensagem)
+        cor = select_cor(i['remetente'])
+        try:
+            print('TIME: ', i['time'], ':', cor + i['remetente'], ' - ', mensagem + '\033[97m')
+        except:
+            print('TIME: ', i['time'], ':', i['remetente'], ' - ', mensagem)
+
 
 
 def gerar_id(): 
