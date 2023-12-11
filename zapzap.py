@@ -42,7 +42,6 @@ def sincronizar_mensagens():
     sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
     enviar_socket(sinc_mensagem)
 
-
 def enviar_historico_sinc(mensagem):
     
     enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -62,10 +61,15 @@ def receber_historico_sinc(data):
 def receber_mensagens(clock):
     while True:
         try:
-            print('1')
+
             data, endereco = recv_socket.recvfrom(1024)
-            print(2)
-            triagem_mensagens(data, clock)
+
+            mensagem = json.loads(data.decode())
+
+            mensagens_all.append(mensagem)
+
+            
+            #triagem_mensagens(data, clock)
             #print("Membro: ", endereco, "\n", "[...]", mensagem, "\n")
             
         except Exception as e:
@@ -98,28 +102,32 @@ def enviar_mensagem(clock):
         historico_mensagens.append(dict_mensagem)
         exibir_mensagens()
 
-def triagem_mensagens(dados, clock):
-    mensagem = json.loads(dados.decode())
-    if mensagem['type'] == 'msg':
-        mensagem.pop('type')
-        clock.update(mensagem['time'])
-        historico_mensagens.append(mensagem)
-        exibir_mensagens()
-    elif mensagem['type'] == 'clockSync':
-        clock.update(mensagem['clock'])
-        sinc_mensagem = {'type': 'updateClock', 'clock': clock.value}
-        sinc_mensagem = json.dumps(sinc_mensagem)
-        enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        enviar_socket.sendto(sinc_mensagem.encode(), (mensagem['host'], mensagem['port']))
-        enviar_socket.close()
-    elif mensagem['type'] == 'updateClock':
-        clock.update(mensagem['clock'])
-        print('02 - ',HOST, ' : ', PORT, ' -> ', clock.value)
-    elif mensagem['type'] == 'sendMsgSync':     
-        enviar_historico_sinc(mensagem)
+def triagem_mensagens(clock):
+    while True:
+        if mensagens_all:
+            mensagem = mensagens_all.pop()
+            if mensagem['type'] == 'msg':
+                mensagem.pop('type')
+                clock.update(mensagem['time'])
+                historico_mensagens.append(mensagem)
+                exibir_mensagens()
+            elif mensagem['type'] == 'clockSync':
+                clock.update(mensagem['clock'])
+                sinc_mensagem = {'type': 'updateClock', 'clock': clock.value}
+                sinc_mensagem = json.dumps(sinc_mensagem)
+                enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                enviar_socket.sendto(sinc_mensagem.encode(), (mensagem['host'], mensagem['port']))
+                enviar_socket.close()
+            elif mensagem['type'] == 'updateClock':
+                clock.update(mensagem['clock'])
+                print('02 - ',HOST, ' : ', PORT, ' -> ', clock.value)
+            elif mensagem['type'] == 'sendMsgSync':     
+                enviar_historico_sinc(mensagem)
 
-    elif mensagem['type'] == 'recivMsgSync':
-        receber_historico_sinc(mensagem)   
+            elif mensagem['type'] == 'recivMsgSync':
+                receber_historico_sinc(mensagem)  
+            else:
+                print('AAOOOOOOOBAAAAAA') 
 
 def exibir_mensagens():
     print('''
@@ -142,6 +150,12 @@ clock = LamportClock()
 #Thread para receber as mensagens a todo momento
 thread_receber = threading.Thread(target=receber_mensagens, args=(clock,))
 thread_receber.start()
+
+print("antesss")
+thread_triagem = threading.Thread(target=triagem_mensagens, args=(clock,))
+thread_triagem.start()
+print('depoisss')
+
 sincronizar_relogio(clock)
 sincronizar_mensagens()
 print(HOST, ' : ', PORT, ' -> ', clock.value)
