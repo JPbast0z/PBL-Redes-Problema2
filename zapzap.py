@@ -2,22 +2,17 @@ import json
 import socket
 import threading
 import uuid
-#import clock
-
+import os
+import time
 #IP e PORT
 HOST = '127.0.0.1'
 PORT = int(input("Digite sua PORT"))
-SINC = 'SINCRONIZAR'
 mensagens_all = []
 #Contatos conhecidos (Dicionario com o endereço dos usuarios conectados) - host:porta
 membros_grupo = {1 : '127.0.0.1:1234', 2 : '127.0.0.1:5678', 3 : '127.0.0.1:9000', 4 : '127.0.0.1:1111'}
 
 #Histórico de mensagens
-historico_mensagens = [{'time' : 0, 'type' : 'msg', 'conteudo' : 'Olá', 'remetente' : '', 'id' : 'idTeste456156'}]
-
-#Server UDP
-recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-recv_socket.bind((HOST, PORT))
+historico_mensagens = []
 
 class LamportClock:
     def __init__(self):
@@ -39,8 +34,10 @@ def sincronizar_relogio(clock):
     enviar_socket(sinc_mensagem)
 
 def sincronizar_mensagens():
-    sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
-    enviar_socket(sinc_mensagem)
+    while True:
+        sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
+        enviar_socket(sinc_mensagem)
+        time.sleep(5)
 
 def enviar_historico_sinc(mensagem):
     
@@ -58,19 +55,12 @@ def receber_historico_sinc(data):
         historico_mensagens.append(mensagem)
 
 #Função que recebe mens
-def receber_mensagens(clock):
+def receber_mensagens(recv_socket):
     while True:
         try:
-
             data, endereco = recv_socket.recvfrom(1024)
-
             mensagem = json.loads(data.decode())
-
             mensagens_all.append(mensagem)
-
-            
-            #triagem_mensagens(data, clock)
-            #print("Membro: ", endereco, "\n", "[...]", mensagem, "\n")
             
         except Exception as e:
             print(f"Erro ao receber mensagem: {e}")
@@ -81,15 +71,12 @@ def enviar_socket(data):
         if membros_grupo[i] != (str(HOST) + ':' + str(PORT)):
             endereco_destino = membros_grupo[i].split(':')
             destino_ip = endereco_destino[0]
-            print(endereco_destino)
             destino_porta = int(endereco_destino[1])
             enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             enviar_socket.sendto(mensagem_encode.encode(), (destino_ip, destino_porta))
             enviar_socket.close()
-            print("PASSSOUUUU")
 
 def enviar_mensagem(clock):
-    
         #nome_destino = input("Digite o nome do destinatário: ")
         mensagem = input("Digite a mensagem: ")
         clock.increment()
@@ -120,55 +107,49 @@ def triagem_mensagens(clock):
                 enviar_socket.close()
             elif mensagem['type'] == 'updateClock':
                 clock.update(mensagem['clock'])
-                print('02 - ',HOST, ' : ', PORT, ' -> ', clock.value)
             elif mensagem['type'] == 'sendMsgSync':     
                 enviar_historico_sinc(mensagem)
 
             elif mensagem['type'] == 'recivMsgSync':
                 receber_historico_sinc(mensagem)  
-            else:
-                print('AAOOOOOOOBAAAAAA') 
 
 def exibir_mensagens():
+    os.system('cls') #windowns
+    #os.system('clear') #linux
     print('''
     -=-=-=-=-=-=--=--=-=-
         CHAT
     -=-=-=-=-=-=--=--=-=-
 ''')
-    for i in historico_mensagens:
+    hisorico_ordenado = sorted(historico_mensagens, key=lambda x: (x['time'], x['id']))
+    for i in hisorico_ordenado:
         print('TIME: ', i['time'], ':', i['conteudo'])
+
 
 def gerar_id(): 
     return str(uuid.uuid4())
 
-#thread para exibir mensagens
+def main():
+    clock = LamportClock() #Criando o objeto do relógio
 
+    recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    recv_socket.bind((HOST, PORT))
     
-#Criando o objeto do relógio
-clock = LamportClock()
+    #Thread para receber as mensagens a todo momento
+    thread_receber = threading.Thread(target=receber_mensagens, args=(recv_socket,))
+    thread_receber.start()
+    #Thread para realizar a triagem das mensagens recebidas
+    thread_triagem = threading.Thread(target=triagem_mensagens, args=(clock,))
+    thread_triagem.start()
+    #Thread para realizar a sincronização periodica das mensagens
+    thread_sinc = threading.Thread(target=sincronizar_mensagens, args=())
+    thread_sinc.start()
 
-#Thread para receber as mensagens a todo momento
-thread_receber = threading.Thread(target=receber_mensagens, args=(clock,))
-thread_receber.start()
+    sincronizar_relogio(clock) #Chamada da função de sincronização do relógio
+    exibir_mensagens() #Chamada da função de exibição das mensagens
 
-print("antesss")
-thread_triagem = threading.Thread(target=triagem_mensagens, args=(clock,))
-thread_triagem.start()
-print('depoisss')
-
-sincronizar_relogio(clock)
-sincronizar_mensagens()
-print(HOST, ' : ', PORT, ' -> ', clock.value)
-#Looping principal
-while True:
-    comando = input("Digite 'conectar' para adicionar um par conhecido ou 'enviar' para enviar mensagem: ")
-
-    if comando == 'conectar':
-        #nome_par = input("Digite o nome do par: ")
-        endereco_par = input("Digite o endereço IP e porta do par (no formato IP:porta): ")
-        cofre = len(membros_grupo) + 1
-        membros_grupo[cofre] = str(HOST) + ':' + endereco_par
-        print(f"Par {cofre} adicionado aos pares conhecidos.")
-
-    elif comando == 'enviar':
+    while True:
         enviar_mensagem(clock)
+
+if __name__ == "__main__":
+    main()
