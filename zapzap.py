@@ -29,6 +29,29 @@ class LamportClock:
             self.value = max(self.value, received_time) + 1
             return self.value
 
+def gerar_chave_cripto():
+    var, var2 = 0, 0
+    for valor in membros_grupo.values():
+        chave1 = valor.split(":")[1]
+        var += int(chave1)
+        chave2 = valor.split(":")[0]
+        var2 += sum(int(digito) for digito in chave2 if digito.isdigit())
+    return var, var2
+
+def criptografar(msg):
+    mensagem = ""
+    var, var2 = gerar_chave_cripto()
+    for i in msg:
+        mensagem += chr (ord(i) + (var % var2))
+    return mensagem
+
+def descriptografar(msg):
+    mensagem = ""
+    var, var2 = gerar_chave_cripto()
+    for i in msg:
+        mensagem += chr (ord(i) - (var % var2))
+    return mensagem
+
 def sincronizar_relogio(clock):
     sinc_mensagem = {'type': 'clockSync', 'clock': clock.value, 'host' : HOST, 'port' : PORT}
     enviar_socket(sinc_mensagem)
@@ -81,6 +104,7 @@ def enviar_mensagem(clock):
         mensagem = input("Digite a mensagem: ")
         clock.increment()
         id = gerar_id()
+        mensagem = criptografar(mensagem)
         dict_mensagem = {'time' : clock.value, 'type' : 'msg', 'conteudo' : mensagem, 'remetente' : str(HOST) + ':' + str(PORT), 'id' : id}
             
         enviar_socket(dict_mensagem)
@@ -123,7 +147,8 @@ def exibir_mensagens():
 ''')
     hisorico_ordenado = sorted(historico_mensagens, key=lambda x: (x['time'], x['id']))
     for i in hisorico_ordenado:
-        print('TIME: ', i['time'], ':', i['conteudo'])
+        mensagem = descriptografar(i['conteudo'])
+        print('TIME: ', i['time'], ':', mensagem)
 
 
 def gerar_id(): 
