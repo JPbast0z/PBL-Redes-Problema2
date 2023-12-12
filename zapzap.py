@@ -34,6 +34,7 @@ CORES = [
 #Histórico de mensagens
 historico_mensagens = []
 
+#Classe responsável pelo relógio lógico de Lamport
 class LamportClock:
     def __init__(self):
         self.value = 0
@@ -48,7 +49,7 @@ class LamportClock:
         with self.lock:
             self.value = max(self.value, received_time) + 1
             return self.value
-
+#Função responsável por selecionar qual o PC do láboratório que está sendo utilizado
 def definir_pc():
     while True:
         try:
@@ -58,7 +59,7 @@ def definir_pc():
                 return endreco[0], int(endreco[1])
         except:
             continue
-
+#Função responsável por criar a chave de criptografia
 def gerar_chave_cripto():
     var, var2 = 0, 0
     for valor in membros_grupo.values():
@@ -67,31 +68,31 @@ def gerar_chave_cripto():
         chave2 = valor.split(":")[0]
         var2 += sum(int(digito) for digito in chave2 if digito.isdigit())
     return var, var2
-
+#Função responsável por criptografar as mensagens
 def criptografar(msg):
     mensagem = ""
     var, var2 = gerar_chave_cripto()
     for i in msg:
         mensagem += chr (ord(i) + (var % var2))
     return mensagem
-
+#Função responsável por descriptografar as mensagens
 def descriptografar(msg):
     mensagem = ""
     var, var2 = gerar_chave_cripto()
     for i in msg:
         mensagem += chr (ord(i) - (var % var2))
     return mensagem
-
+#Função responsável por sincronizar o relógio lógico
 def sincronizar_relogio(clock, HOST ,PORT):
     sinc_mensagem = {'type': 'clockSync', 'clock': clock.value, 'host' : HOST, 'port' : PORT}
     enviar_socket(sinc_mensagem, HOST, PORT)
-
+#Função responsável por sincornizar as conversas
 def sincronizar_mensagens(HOST, PORT):
     while True:
         sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
         enviar_socket(sinc_mensagem, HOST, PORT)
         time.sleep(5)
-
+#Função responável por enviar as mensagens para outros usuários para que ocorra a sincronização
 def enviar_historico_sinc(mensagem):
     
     enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -101,13 +102,12 @@ def enviar_historico_sinc(mensagem):
         sinc_mensagem = json.dumps(sinc_mensagem)
         enviar_socket.sendto(sinc_mensagem.encode(), (mensagem['host'], mensagem['port']))
     enviar_socket.close()
-
+#Função responsável por receber as mensagens de outros usuários para que ocorra a sincronização
 def receber_historico_sinc(data):
     mensagem =  data['data']
     if mensagem not in historico_mensagens:
         historico_mensagens.append(mensagem)
-
-#Função que recebe mens
+#Função responsável por receber todas as mensagens e solicitações via socket
 def receber_mensagens(recv_socket):
     while True:
         try:
@@ -117,7 +117,7 @@ def receber_mensagens(recv_socket):
             
         except Exception as e:
             print(f"Erro ao receber mensagem: {e}")
-
+#Função responsável por enviar todas as mensagens e solicitações via socket
 def enviar_socket(data, HOST, PORT):
     mensagem_encode = json.dumps(data)
     for i in membros_grupo:
@@ -128,7 +128,7 @@ def enviar_socket(data, HOST, PORT):
             enviar_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             enviar_socket.sendto(mensagem_encode.encode(), (destino_ip, destino_porta))
             enviar_socket.close()
-
+#Função responsável por padronizar as mensagens para que possam ser enviadas via socket e adicionadas ao histórico de mensagens
 def enviar_mensagem(clock, HOST, PORT):
         #nome_destino = input("Digite o nome do destinatário: ")
         mensagem = input("Digite a mensagem: ")
@@ -142,7 +142,7 @@ def enviar_mensagem(clock, HOST, PORT):
         dict_mensagem.pop('type')
         historico_mensagens.append(dict_mensagem)
         exibir_mensagens()
-
+#Função responsável por realizar a triagem de todas as mensagens e solicitações recebidas
 def triagem_mensagens(clock):
     while True:
         if mensagens_all:
@@ -166,12 +166,12 @@ def triagem_mensagens(clock):
 
             elif mensagem['type'] == 'recivMsgSync':
                 receber_historico_sinc(mensagem)  
-
+#Função responsável por selecionar uma respectiva cor para casa usuário no sistema
 def select_cor(var):
     for i in membros_grupo:
         if membros_grupo[i] == var:
             return CORES[i - 1]
-
+#Função responsável por exibir as mensagens na na tela
 def exibir_mensagens():
     #os.system('cls') #windowns
     os.system('clear') #linux
@@ -188,10 +188,10 @@ def exibir_mensagens():
             print(cor + i['remetente'], ' - ', mensagem + '\033[97m')
         except:
             print(i['remetente'], ' - ', mensagem)
-
+#Função responsável por gerar um ID único para idenificação das mensagens
 def gerar_id(): 
     return str(uuid.uuid4())
-
+#Função main responável por instanciar o objeto do relógio de Lamport, as threads, iniciar o envio das mensagens e selecionar qual PC do laboratório está sendo usado
 def main():
     while True:
         try:
@@ -216,7 +216,7 @@ def main():
     exibir_mensagens() #Chamada da função de exibição das mensagens
 
     while True:
-        enviar_mensagem(clock, HOST, PORT)
+        enviar_mensagem(clock, HOST, PORT) #Chamada do envio das mensagens
 
 if __name__ == "__main__":
     main()
