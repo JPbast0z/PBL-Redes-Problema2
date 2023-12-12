@@ -4,12 +4,14 @@ import threading
 import uuid
 import os
 import time
-#IP e PORT
-HOST = '127.0.0.1'
-PORT = int(input("Digite sua PORT"))
+
+#Dicionario para testar em casa
+#membros_grupo = {1 : '127.0.0.1:1234', 2 : '127.0.0.1:5678', 3 : '127.0.0.1:9000', 4 : '127.0.0.1:1111'}
+#Dicionario com ips e portas para o lab
+membros_grupo = {1: '172.16.103.1:1111', 2: '172.16.103.2:2222', 3: '172.16.103.3:3333', 4 : '172.16.103.4:4444', 5: '172.16.103.5:5555', 6: '172.16.103.6:6666', 7: '172.16.103.7:7777', 8: '172.16.103.8:8888', 9: '172.16.103.9:9999', 10: '172.16.103.10:9899', 11: '172.16.103.11:7888', 12: '172.16.103.12:8569', 13: '172.16.103.13:9044', 14: '172.16.103.14:8944'}
+
 mensagens_all = []
 #Contatos conhecidos (Dicionario com o endereço dos usuarios conectados) - host:porta
-membros_grupo = {1 : '127.0.0.1:1234', 2 : '127.0.0.1:5678', 3 : '127.0.0.1:9000', 4 : '127.0.0.1:1111'}
 
 # Códigos de escape ANSI para cores de texto
 CORES = [
@@ -47,6 +49,16 @@ class LamportClock:
             self.value = max(self.value, received_time) + 1
             return self.value
 
+def definir_pc():
+    while True:
+        try:
+            pc = int(input("Digite o número do seu PC: "))
+            if pc in membros_grupo:
+                endreco = membros_grupo[pc].split(":")
+                return endreco[0], int(endreco[1])
+        except:
+            continue
+
 def gerar_chave_cripto():
     var, var2 = 0, 0
     for valor in membros_grupo.values():
@@ -70,14 +82,14 @@ def descriptografar(msg):
         mensagem += chr (ord(i) - (var % var2))
     return mensagem
 
-def sincronizar_relogio(clock):
+def sincronizar_relogio(clock, HOST ,PORT):
     sinc_mensagem = {'type': 'clockSync', 'clock': clock.value, 'host' : HOST, 'port' : PORT}
-    enviar_socket(sinc_mensagem)
+    enviar_socket(sinc_mensagem, HOST, PORT)
 
-def sincronizar_mensagens():
+def sincronizar_mensagens(HOST, PORT):
     while True:
         sinc_mensagem = {'type': 'sendMsgSync', 'host' : HOST, 'port' : PORT}
-        enviar_socket(sinc_mensagem)
+        enviar_socket(sinc_mensagem, HOST, PORT)
         time.sleep(5)
 
 def enviar_historico_sinc(mensagem):
@@ -106,7 +118,7 @@ def receber_mensagens(recv_socket):
         except Exception as e:
             print(f"Erro ao receber mensagem: {e}")
 
-def enviar_socket(data):
+def enviar_socket(data, HOST, PORT):
     mensagem_encode = json.dumps(data)
     for i in membros_grupo:
         if membros_grupo[i] != (str(HOST) + ':' + str(PORT)):
@@ -117,7 +129,7 @@ def enviar_socket(data):
             enviar_socket.sendto(mensagem_encode.encode(), (destino_ip, destino_porta))
             enviar_socket.close()
 
-def enviar_mensagem(clock):
+def enviar_mensagem(clock, HOST, PORT):
         #nome_destino = input("Digite o nome do destinatário: ")
         mensagem = input("Digite a mensagem: ")
         clock.increment()
@@ -125,7 +137,7 @@ def enviar_mensagem(clock):
         mensagem = criptografar(mensagem)
         dict_mensagem = {'time' : clock.value, 'type' : 'msg', 'conteudo' : mensagem, 'remetente' : str(HOST) + ':' + str(PORT), 'id' : id}
             
-        enviar_socket(dict_mensagem)
+        enviar_socket(dict_mensagem, HOST, PORT)
 
         dict_mensagem.pop('type')
         historico_mensagens.append(dict_mensagem)
@@ -161,8 +173,8 @@ def select_cor(var):
             return CORES[i - 1]
 
 def exibir_mensagens():
-    os.system('cls') #windowns
-    #os.system('clear') #linux
+    #os.system('cls') #windowns
+    os.system('clear') #linux
     print('''
     -=-=-=-=-=-=--=--=-=-
             ZAPZAP
@@ -173,21 +185,23 @@ def exibir_mensagens():
         mensagem = descriptografar(i['conteudo'])
         cor = select_cor(i['remetente'])
         try:
-            print('TIME: ', i['time'], ':', cor + i['remetente'], ' - ', mensagem + '\033[97m')
+            print(cor + i['remetente'], ' - ', mensagem + '\033[97m')
         except:
-            print('TIME: ', i['time'], ':', i['remetente'], ' - ', mensagem)
-
-
+            print(i['remetente'], ' - ', mensagem)
 
 def gerar_id(): 
     return str(uuid.uuid4())
 
 def main():
+    while True:
+        try:
+            HOST , PORT = definir_pc()
+            recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            recv_socket.bind((HOST, PORT))
+            break
+        except:
+            continue
     clock = LamportClock() #Criando o objeto do relógio
-
-    recv_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    recv_socket.bind((HOST, PORT))
-    
     #Thread para receber as mensagens a todo momento
     thread_receber = threading.Thread(target=receber_mensagens, args=(recv_socket,))
     thread_receber.start()
@@ -195,14 +209,14 @@ def main():
     thread_triagem = threading.Thread(target=triagem_mensagens, args=(clock,))
     thread_triagem.start()
     #Thread para realizar a sincronização periodica das mensagens
-    thread_sinc = threading.Thread(target=sincronizar_mensagens, args=())
+    thread_sinc = threading.Thread(target=sincronizar_mensagens, args=(HOST, PORT,))
     thread_sinc.start()
 
-    sincronizar_relogio(clock) #Chamada da função de sincronização do relógio
+    sincronizar_relogio(clock, HOST, PORT) #Chamada da função de sincronização do relógio
     exibir_mensagens() #Chamada da função de exibição das mensagens
 
     while True:
-        enviar_mensagem(clock)
+        enviar_mensagem(clock, HOST, PORT)
 
 if __name__ == "__main__":
     main()
