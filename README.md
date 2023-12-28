@@ -93,4 +93,4 @@ Portanto, é possível notar que os objetivos propostos pelo problema foram alca
 
 Em futuras atualizações deste projeto, uma funcionalidade pode ser implementada para verificar quais usuários estão online e se todos eles receberam as mensagens antes de exibi-las, evitando qualquer inconveniente de mensagens não visualizadas por algum usuário, mesmo que por um breve período de tempo. Além disso, considerando a constante evolução das práticas de segurança, pode-se explorar a implementação de métodos de criptografia mais avançados, visto que o método atual é bastante simples.
 
-# 4. Referencias
+# 4. Referências
